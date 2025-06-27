@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2022 生化学過去問演習</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- canvas-confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        /* 和風グラデーション背景 */
+        body {
+            background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+            font-family: 'Helvetica Neue', 'Arial', 'Hiragino Sans', 'Meiryo', sans-serif;
+        }
+        
+        /* ガラスモーフィズム効果を持つカード */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* 解答表示のスムーズなアニメーション */
+        .answer-container {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.7s ease-in-out;
+        }
+        
+        .answer-container.show {
+            max-height: 2000px; /* 十分な高さを確保 */
+        }
+
+        /* ボタンのホバーエフェクト */
+        .btn {
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .btn:active {
+            transform: translateY(0px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        /* 画面遷移アニメーション */
+        .screen {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 理解度ボタンの選択状態 */
+        .status-btn.selected {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- スタート画面 -->
+    <div id="start-screen" class="screen w-full max-w-lg text-center">
+        <div class="glass-card rounded-2xl p-8 shadow-2xl">
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-2">2022 生化学過去問演習</h1>
+            <p class="text-gray-600 mb-8">医学部生化学の重要事項をマスターしよう</p>
+            <div class="space-y-4">
+                <button id="start-sequential-btn" class="btn w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg">
+                    <i class="fas fa-list-ol mr-2"></i>順番に問題を解く
+                </button>
+                <button id="start-random-btn" class="btn w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg">
+                    <i class="fas fa-random mr-2"></i>ランダムに問題を解く
+                </button>
+            </div>
+        </div>
+        <footer class="mt-8 text-white/70 text-sm">
+            © 2025 Medteria All rights reserved.
+        </footer>
+    </div>
+
+    <!-- 問題画面 -->
+    <div id="main-screen" class="screen hidden w-full max-w-4xl">
+        <div class="glass-card rounded-2xl p-6 shadow-2xl">
+            <!-- ヘッダー：進捗とチャート -->
+            <header class="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-white/50 pb-4">
+                <div class="text-center md:text-left mb-4 md:mb-0">
+                    <h2 id="progress-text" class="text-2xl font-bold text-gray-800">Q. 1 / 6</h2>
+                    <p id="mode-text" class="text-sm text-gray-600">通常モード</p>
+                </div>
+                <div class="w-24 h-24 relative">
+                    <canvas id="progress-chart"></canvas>
+                </div>
+                <button id="back-to-title-btn" class="btn mt-4 md:mt-0 bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg shadow">
+                    <i class="fas fa-home mr-1"></i>タイトルに戻る
+                </button>
+            </header>
+
+            <!-- 問題文エリア -->
+            <div id="question-area" class="bg-white/70 p-6 rounded-lg mb-6 min-h-[150px]">
+                <p id="question-text" class="text-gray-800 leading-relaxed"></p>
+            </div>
+
+            <!-- 解答・解説ボタン -->
+            <div class="text-center mb-6">
+                <button id="toggle-answer-btn" class="btn bg-gradient-to-r from-green-400 to-blue-500 text-white font-bold py-3 px-8 rounded-full shadow-lg">
+                    <i class="fas fa-eye mr-2"></i>解答・解説を確認する
+                </button>
+            </div>
+
+            <!-- 解答・解説エリア (アコーディオン) -->
+            <div id="answer-container" class="answer-container">
+                <div class="bg-indigo-50 p-6 rounded-lg mb-6">
+                    <h3 class="font-bold text-lg text-indigo-800 mb-2 border-b-2 border-indigo-200 pb-1">【解答】</h3>
+                    <div id="answer-text" class="text-indigo-900 font-semibold leading-relaxed mb-4"></div>
+                    <h3 class="font-bold text-lg text-indigo-800 mb-2 border-b-2 border-indigo-200 pb-1">【解説】</h3>
+                    <div id="explanation-text" class="text-gray-700 leading-relaxed"></div>
+                </div>
+            </div>
+
+            <!-- ナビゲーションと理解度 -->
+            <footer class="flex flex-col md:flex-row items-center justify-between">
+                <button id="prev-btn" class="btn w-full md:w-auto bg-white text-gray-800 font-bold py-2 px-4 rounded-lg shadow mb-4 md:mb-0">
+                    <i class="fas fa-arrow-left mr-2"></i>前の問題へ
+                </button>
+                <div class="flex space-x-2 my-4 md:my-0">
+                    <button data-status="review" class="status-btn btn bg-red-400 text-white font-bold py-2 px-4 rounded-lg shadow-md"><i class="fas fa-exclamation-triangle mr-1"></i>要復習</button>
+                    <button data-status="soso" class="status-btn btn bg-yellow-400 text-white font-bold py-2 px-4 rounded-lg shadow-md"><i class="fas fa-check mr-1"></i>まあまあ</button>
+                    <button data-status="perfect" class="status-btn btn bg-green-500 text-white font-bold py-2 px-4 rounded-lg shadow-md"><i class="fas fa-check-double mr-1"></i>完璧</button>
+                </div>
+                <button id="next-btn" class="btn w-full md:w-auto bg-white text-gray-800 font-bold py-2 px-4 rounded-lg shadow">
+                    次の問題へ<i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </footer>
+        </div>
+    </div>
+    
+    <!-- 結果画面 -->
+    <div id="result-screen" class="hidden screen w-full max-w-lg text-center">
+        <div class="glass-card rounded-2xl p-8 shadow-2xl">
+            <h2 class="text-4xl font-bold text-green-600 mb-4">🎉 おめでとうございます！ 🎉</h2>
+            <p class="text-gray-700 mb-6">全問解き終わりました。素晴らしい集中力です！</p>
+            <div class="w-48 h-48 mx-auto mb-6">
+                <canvas id="final-score-chart"></canvas>
+            </div>
+            <p class="text-gray-600 mb-8">最終的な理解度</p>
+            <div class="space-y-4">
+                <button id="retry-btn" class="btn w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg">
+                    <i class="fas fa-redo mr-2"></i>もう一度挑戦する
+                </button>
+                 <button id="back-to-title-from-result-btn" class="btn w-full bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-lg shadow">
+                    <i class="fas fa-home mr-2"></i>タイトルに戻る
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // 問題データ
+    const questions = [
+        {
+            id: 1,
+            question: `<strong>【問題1-1】脂質の輸送</strong><br>肝臓で合成されたトリアシルグリセロール、コレステロールは <strong>( A )</strong> として血中へ放出される。( A ) 中のトリアシルグリセロールは <strong>( B: 酵素名 )</strong> により加水分解され、肝外組織に遊離脂肪酸を供給する。筋肉では遊離脂肪酸は代謝燃料として使用され、<strong>( C )</strong> 組織では再びトリアシルグリセロールに変換されて貯蔵される。( B ) が作用した ( A ) はIDLとなり、さらに代謝されて <strong>( D )</strong> となる。IDL、( D ) は肝臓に返送されるが、一部の ( D ) は肝外組織に取り込まれ、コレステロールを供給する。<br><strong>( E )</strong> は肝外組織から余剰のコレステロールを回収するリポタンパク質であり、エステル化したコレステロールを、( A )、IDL、( D ) へ引き渡し、コレステロールを肝臓へ返送する。肝臓ではコレステロールから界面活性作用を持つ <strong>( F )</strong> が合成され、遊離コレステロールとともに胆管を通じて小腸へ放出される。98-99%の ( F ) は小腸から門脈を通じて肝臓に返送される一方、ごくわずかは遊離コレステロールとともに糞便として体外へ排出される。`,
+            answer: `<ul>
+                        <li><strong>A:</strong> VLDL（超低密度リポタンパク質）</li>
+                        <li><strong>B:</strong> リポタンパク質リパーゼ (LPL)</li>
+                        <li><strong>C:</strong> 脂肪</li>
+                        <li><strong>D:</strong> LDL（低密度リポタンパク質）</li>
+                        <li><strong>E:</strong> HDL（高密度リポタンパク質）</li>
+                        <li><strong>F:</strong> 胆汁酸</li>
+                    </ul>`,
+            explanation: `この文章は、血中脂質の主要な輸送経路である<strong>内因性脂質輸送経路</strong>と<strong>コレステロール逆転送系</strong>を説明しています。
+                        <ul class="list-disc list-inside mt-2 space-y-1">
+                            <li><strong>内因性経路:</strong> 肝臓が合成した脂質(TG)をVLDL(A)として放出し、LPL(B)の作用で脂肪組織(C)や筋肉に脂肪酸を供給します。TGを失ったVLDLはIDLを経てLDL(D)になります。</li>
+                            <li><strong>逆転送系:</strong> HDL(E)が末梢の余剰コレステロールを回収し、肝臓へ戻す働きをします。</li>
+                            <li><strong>胆汁酸(F)と腸肝循環:</strong> 肝臓はコレステロールを胆汁酸(F)に変換して排泄します。その大半は小腸から再吸収され（腸肝循環）、体内コレステロール量を調節する重要な機構です。</li>
+                        </ul>`
+        },
+        {
+            id: 2,
+            question: `<strong>【問題1-2】脂肪酸の合成と酸化</strong><br>
+                        <strong>(1)</strong> 脂肪酸合成の律速段階はアセチルCoAから <strong>( A )</strong> を作る段階である。脂肪酸合成酵素はアセチルCoAと7分子の( A )から最終生成物として <strong>( B )</strong> 酸を合成する。<br>
+                        <strong>(2)</strong> 肝臓では3分子のアセチルCoAからケトン体である <strong>( C )</strong> と <strong>( D )</strong> を合成し、血中へ放出する。<br>
+                        <strong>(3)</strong> アセチルCoAカルボキシラーゼが活性化すると脂肪酸のβ酸化が抑制される。その仕組みは？<br>
+                        <strong>(4)</strong> 飢餓で糖新生が活発化するとCとDの合成が亢進する仕組みは？`,
+            answer: `<ul>
+                        <li><strong>(1) A:</strong> マロニルCoA, <strong>B:</strong> パルミチン</li>
+                        <li><strong>(2) C:</strong> アセト酢酸, <strong>D:</strong> β-ヒドロキシ酪酸</li>
+                        <li><strong>(3)</strong> 産物である<strong>マロニルCoA</strong>が、ミトコンドリアへの脂肪酸輸送を担う<strong>CPT-I</strong>を阻害するため。</li>
+                        <li><strong>(4)</strong> 糖新生で<strong>オキサロ酢酸</strong>が消費されクエン酸回路が停滞し、過剰な<strong>アセチルCoA</strong>がケトン体合成に回るため。</li>
+                    </ul>`,
+            explanation: `<ul class="list-disc list-inside mt-2 space-y-2">
+                            <li><strong>脂肪酸合成:</strong> 細胞質で行われ、アセチルCoAカルボキシラーゼ(ACC)が作る<strong>マロニルCoA(A)</strong>が重要です。最終産物はC16の<strong>パルミチン酸(B)</strong>です。</li>
+                            <li><strong>ケトン体合成:</strong> 飢餓時など、肝臓のミトコンドリアでβ酸化によりアセチルCoAが過剰になると、<strong>アセト酢酸(C)</strong>と<strong>β-ヒドロキシ酪酸(D)</strong>が合成され、肝外組織のエネルギー源となります。</li>
+                            <li><strong>(3) 合成と分解の協調的調節:</strong> 脂肪酸合成が活発な時（マロニルCoA濃度↑）、分解（β酸化）の入り口であるCPT-Iを阻害するのは、無駄な代謝サイクルを防ぐ合理的な仕組みです。</li>
+                            <li><strong>(4) 飢餓時の代謝シフト:</strong> 飢餓時は血糖維持のために糖新生が最優先されます。その基質となるオキサロ酢酸が枯渇するため、クエン酸回路が回りにくくなります。一方で脂肪分解は亢進しアセチルCoAが大量に供給されるため、行き場を失ったアセチルCoAがケトン体合成へと向かいます。</li>
+                        </ul>`
+        },
+        {
+            id: 3,
+            question: `<strong>【問題2-1】必須脂肪酸とエイコサノイド</strong><br>リノール酸、<strong>( A )</strong> 酸は栄養学上の必須脂肪酸であり、リノール酸からは炭素数20の必須脂肪酸である <strong>( B )</strong> 酸、( A )酸からはエイコサペンタエン酸がそれぞれ合成される。( B )酸やエイコサペンタエン酸に <strong>( C )</strong> が作用し、プロスタグランジン、トロンボキサンが合成される。NSAIDsは ( C ) の活性を阻害することで抗炎症、解熱、鎮痛作用を発揮する。`,
+            answer: `<ul>
+                        <li><strong>A:</strong> α-リノレン</li>
+                        <li><strong>B:</strong> アラキドン</li>
+                        <li><strong>C:</strong> シクロオキシゲナーゼ (COX)</li>
+                    </ul>`,
+            explanation: `ヒトは体内で二重結合をω9位より末端側に導入できないため、ω6系の<strong>リノール酸</strong>とω3系の<strong>α-リノレン酸(A)</strong>を食事から摂取する必要があります。
+                        <ul class="list-disc list-inside mt-2 space-y-1">
+                            <li>リノール酸からは<strong>アラキドン酸(B)</strong>が、α-リノレン酸からはEPAやDHAが合成されます。</li>
+                            <li>これらC20の多価不飽和脂肪酸から作られる生理活性物質がエイコサノイドです。</li>
+                            <li><strong>シクロオキシゲナーゼ(COX)(C)</strong>は、アラキドン酸からプロスタグランジン(PG)やトロンボキサン(TX)を合成する酵素で、炎症や痛みに関与します。</li>
+                            <li>非ステロイド系抗炎症薬(NSAIDs)は、このCOXを阻害することで薬理効果を示します。</li>
+                        </ul>`
+        },
+        {
+            id: 4,
+            question: `<strong>【問題2-2】セラミドの生合成</strong><br>セラミドの生合成に関して、以下の中から最も適切なものを選びなさい。<br>
+                        あ) セリン、ジヒドロキシアセトンリン酸、シアル酸からセラミドが合成される<br>
+                        い) セリン、パルミトイルCoA、アシルCoAからセラミドが合成される<br>
+                        う) セリン、パルミトイルCoA、アシルCoA、コリンからセラミドが合成される<br>
+                        え) セリン、パルミトイルCoA、スフィンゴシンからセラミドが合成される<br>
+                        お) セリン、パルミトイルCoA、スフィンゴシン、コリンからセラミドが合成される`,
+            answer: `<strong>い) セリン、パルミトイルCoA、アシルCoAからセラミドが合成される</strong>`,
+            explanation: `セラミドはスフィンゴ脂質の基本骨格です。その新規合成経路(de novo合成)は以下のステップで進みます。<br>
+                        <ol class="list-decimal list-inside mt-2 space-y-1">
+                            <li><strong>セリン</strong> + <strong>パルミトイルCoA</strong> → 3-ケトスフィンガニン</li>
+                            <li>3-ケトスフィンガニン → スフィンガニン (還元)</li>
+                            <li>スフィンガニン + <strong>アシルCoA</strong> (別の脂肪酸) → ジヒドロセラミド</li>
+                            <li>ジヒドロセラミド → <strong>セラミド</strong> (二重結合導入)</li>
+                        </ol>
+                        したがって、出発物質として<strong>セリン</strong>、<strong>パルミトイルCoA</strong>、そしてもう一つの脂肪酸を供給する<strong>アシルCoA</strong>の3つが必要です。選択肢「い」がこの過程を正しく反映しています。コリンはセラミドに付加されてスフィンゴミエリンを作る際に、スフィンゴシンは合成の中間体です。`
+        },
+        {
+            id: 5,
+            question: `<strong>【問題4】アミノ酸からのアンモニア生成</strong><br>
+                        (1) <strong>間接的脱アミノ反応</strong>では、多くのアミノ酸のアミノ基が<strong>α-ケトグルタル酸 ( ② )</strong> に転移し、<strong>( ① )</strong> を生成する。この反応を <strong>( ③ )</strong> 反応という。その後、( ① ) が酸化的脱アミノ反応により ( ② ) に戻る際にNH₃が遊離する。<br>
+                        (2) 筋運動時、AMPを代謝するために <strong>( ⑤ )</strong> サイクルが働く。AMPの脱 <strong>( ⑥ )</strong> 反応で <strong>( ⑦ )</strong> が産生されるが、この際のアミノ基の供与体は <strong>( ⑧ )</strong> である。`,
+            answer: `<ul>
+                        <li><strong>①:</strong> グルタミン酸</li>
+                        <li><strong>③:</strong> アミノ基転移</li>
+                        <li><strong>⑤:</strong> プリンヌクレオチド</li>
+                        <li><strong>⑥:</strong> アミノ</li>
+                        <li><strong>⑦:</strong> IMP (イノシン一リン酸)</li>
+                        <li><strong>⑧:</strong> アスパラギン酸</li>
+                    </ul>`,
+            explanation: `アミノ酸からアンモニアが生成する主要なメカニズムに関する問題です。<br>
+                        <ul class="list-disc list-inside mt-2 space-y-2">
+                            <li><strong>(1) 間接的脱アミノ反応:</strong> 体内のほとんどのアミノ酸のアミノ基は、まず<strong>アミノ基転移(③)</strong>反応によって<strong>グルタミン酸(①)</strong>に集められます。その後、グルタミン酸がグルタミン酸デヒドロゲナーゼ(GDH)によって酸化的脱アミノを受け、アンモニアを放出します。これはアミノ基処理の中心的な経路です。</li>
+                            <li><strong>(2) プリンヌクレオチドサイクル(⑤):</strong> 特に骨格筋で重要です。激しい運動で生じたAMPを、AMPデアミナーゼが脱<strong>アミノ(⑥)</strong>して<strong>IMP(⑦)</strong>とアンモニアを生成します。これによりATP/ADP比が維持されやすくなります。サイクルを回すために、IMPは<strong>アスパラギン酸(⑧)</strong>のアミノ基を使ってAMPに再生されます。結果として、アスパラギン酸のアミノ基がアンモニアとして遊離したことになります。</li>
+                        </ul>`
+        },
+        {
+            id: 6,
+            question: `<strong>【問題6】尿素回路と臓器連関</strong><br>
+                        (1) 尿素回路の律速酵素CPS Iの絶対的なアロステリック効果体は <strong>( ① )</strong> であり、これは <strong>( ② )</strong> と <strong>( ③ )</strong> CoAから合成される。<br>
+                        (2) アルギニンは <strong>( ④ )</strong> と <strong>( ⑤ )</strong> の臓器連関によって合成される。<br>
+                        (3) <strong>( ⑥ )</strong> から放出される主なアミノ酸は <strong>( ⑧ )</strong> と <strong>( ⑨ )</strong> である。<br>
+                        (4) <strong>( ⑦ )</strong> ではグルタミンの分解は不活発であり、<strong>( ⑦ )</strong> と腸管は一体となって窒素代謝を担っている。`,
+            answer: `<ul>
+                        <li><strong>①:</strong> N-アセチルグルタミン酸</li>
+                        <li><strong>②:</strong> グルタミン酸</li>
+                        <li><strong>③:</strong> アセチル</li>
+                        <li><strong>④:</strong> 小腸</li>
+                        <li><strong>⑤:</strong> 腎臓</li>
+                        <li><strong>⑥:</strong> 骨格筋</li>
+                        <li><strong>⑦:</strong> 肝臓</li>
+                        <li><strong>⑧:</strong> アラニン</li>
+                        <li><strong>⑨:</strong> グルタミン</li>
+                    </ul>`,
+            explanation: `アンモニアの解毒システムである尿素回路と、それに関わる臓器間の窒素代謝ネットワークに関する問題です。<br>
+                        <ul class="list-disc list-inside mt-2 space-y-2">
+                            <li><strong>尿素回路の調節:</strong> 律速酵素CPS Iは<strong>N-アセチルグルタミン酸(①)</strong>によって活性化されます。これはアミノ酸異化が盛んなこと(グルタミン酸(②)↑)とエネルギーが豊富なこと(アセチル(③)CoA↑)を示すシグナルです。</li>
+                            <li><strong>臓器連関:</strong> 体で必要なアルギニンは、<strong>小腸(④)</strong>が合成したシトルリンを<strong>腎臓(⑤)</strong>が受け取ってアルギニンに変換するという連携プレー（腸腎連関）で供給されます。</li>
+                            <li><strong>窒素輸送:</strong> 有毒なアンモニアを安全に輸送するため、<strong>骨格筋(⑥)</strong>などは窒素を<strong>アラニン(⑧)</strong>と<strong>グルタミン(⑨)</strong>の形に変えて血中に放出します。アラニンは肝臓(⑦)で糖新生に、グルタミンは腎臓や小腸で利用されます。</li>
+                            <li><strong>肝臓(⑦)の役割:</strong> 肝臓は尿素回路の中心ですが、グルタミンを直接分解する活性は低く、門脈から流入するアンモニアやアラニンを主に取り込みます。このため、窒素代謝は腸管と肝臓が一体となって制御されています。</li>
+                        </ul>`
+        }
+    ];
+
+    // DOM要素
+    const startScreen = document.getElementById('start-screen');
+    const mainScreen = document.getElementById('main-screen');
+    const resultScreen = document.getElementById('result-screen');
+    
+    const startSequentialBtn = document.getElementById('start-sequential-btn');
+    const startRandomBtn = document.getElementById('start-random-btn');
+    const backToTitleBtn = document.getElementById('back-to-title-btn');
+    const backToTitleFromResultBtn = document.getElementById('back-to-title-from-result-btn');
+    const retryBtn = document.getElementById('retry-btn');
+    
+    const progressText = document.getElementById('progress-text');
+    const modeText = document.getElementById('mode-text');
+    const questionText = document.getElementById('question-text');
+    const answerText = document.getElementById('answer-text');
+    const explanationText = document.getElementById('explanation-text');
+    
+    const toggleAnswerBtn = document.getElementById('toggle-answer-btn');
+    const answerContainer = document.getElementById('answer-container');
+    
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const statusBtns = document.querySelectorAll('.status-btn');
+
+    // 状態変数
+    let currentQuestionIndex = 0;
+    let questionOrder = [];
+    let isRandomMode = false;
+    let progressChart;
+    let finalScoreChart;
+    let questionStatus = [];
+
+    // 初期化
+    function init() {
+        loadProgress();
+        startSequentialBtn.addEventListener('click', () => startGame(false));
+        startRandomBtn.addEventListener('click', () => startGame(true));
+        backToTitleBtn.addEventListener('click', showStartScreen);
+        backToTitleFromResultBtn.addEventListener('click', showStartScreen);
+        retryBtn.addEventListener('click', () => startGame(isRandomMode));
+        
+        toggleAnswerBtn.addEventListener('click', toggleAnswer);
+        prevBtn.addEventListener('click', () => changeQuestion(-1));
+        nextBtn.addEventListener('click', () => changeQuestion(1));
+
+        statusBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                setUnderstandingStatus(e.currentTarget.dataset.status);
+            });
+        });
+
+        document.addEventListener('keydown', handleKeyPress);
+    }
+    
+    // 学習状況をlocalStorageから読み込み
+    function loadProgress() {
+        const savedStatus = localStorage.getItem('biochem_progress');
+        if (savedStatus) {
+            questionStatus = JSON.parse(savedStatus);
+        } else {
+            questionStatus = questions.map(() => 'unseen');
+        }
+    }
+
+    // 学習状況をlocalStorageに保存
+    function saveProgress() {
+        localStorage.setItem('biochem_progress', JSON.stringify(questionStatus));
+    }
+    
+    // ゲーム開始
+    function startGame(isRandom) {
+        isRandomMode = isRandom;
+        currentQuestionIndex = 0;
+        
+        questionOrder = [...Array(questions.length).keys()];
+        if (isRandom) {
+            for (let i = questionOrder.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [questionOrder[i], questionOrder[j]] = [questionOrder[j], questionOrder[i]];
+            }
+        }
+        
+        startScreen.classList.add('hidden');
+        resultScreen.classList.add('hidden');
+        mainScreen.classList.remove('hidden');
+        
+        modeText.textContent = isRandom ? 'ランダムモード' : '通常モード';
+        
+        displayQuestion();
+        initProgressChart();
+    }
+    
+    // 問題表示
+    function displayQuestion() {
+        const qIndex = questionOrder[currentQuestionIndex];
+        const question = questions[qIndex];
+        
+        progressText.textContent = `Q. ${currentQuestionIndex + 1} / ${questions.length}`;
+        questionText.innerHTML = question.question;
+        answerText.innerHTML = question.answer;
+        explanationText.innerHTML = question.explanation;
+        
+        // 解答を隠す
+        answerContainer.classList.remove('show');
+        toggleAnswerBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>解答・解説を確認する';
+        
+        // ボタンの表示/非表示
+        prevBtn.disabled = currentQuestionIndex === 0;
+        prevBtn.classList.toggle('opacity-50', currentQuestionIndex === 0);
+        
+        if (currentQuestionIndex === questions.length - 1) {
+            nextBtn.innerHTML = '結果を見る<i class="fas fa-flag-checkered ml-2"></i>';
+        } else {
+            nextBtn.innerHTML = '次の問題へ<i class="fas fa-arrow-right ml-2"></i>';
+        }
+
+        updateStatusButtons();
+        updateProgressChart();
+    }
+    
+    // 解答の表示/非表示
+    function toggleAnswer() {
+        const isShown = answerContainer.classList.toggle('show');
+        if (isShown) {
+             toggleAnswerBtn.innerHTML = '<i class="fas fa-eye-slash mr-2"></i>解答を隠す';
+        } else {
+             toggleAnswerBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>解答・解説を確認する';
+        }
+    }
+    
+    // 問題移動
+    function changeQuestion(direction) {
+        if (currentQuestionIndex + direction >= questions.length) {
+            showResultScreen();
+            return;
+        }
+        if (currentQuestionIndex + direction < 0) {
+            return;
+        }
+        currentQuestionIndex += direction;
+        displayQuestion();
+    }
+    
+    // 理解度ステータス設定
+    function setUnderstandingStatus(status) {
+        const qIndex = questionOrder[currentQuestionIndex];
+        questionStatus[qIndex] = status;
+        saveProgress();
+        updateStatusButtons();
+        updateProgressChart();
+    }
+    
+    // 理解度ボタンの表示更新
+    function updateStatusButtons() {
+        const qIndex = questionOrder[currentQuestionIndex];
+        const currentStatus = questionStatus[qIndex];
+        statusBtns.forEach(btn => {
+            if (btn.dataset.status === currentStatus) {
+                btn.classList.add('selected', 'ring-2', 'ring-offset-2', 'ring-white');
+                btn.style.boxShadow = `0 0 15px ${btn.style.backgroundColor || 'white'}`;
+            } else {
+                btn.classList.remove('selected', 'ring-2', 'ring-offset-2', 'ring-white');
+                btn.style.boxShadow = '';
+            }
+        });
+    }
+    
+    // 進捗チャートの初期化と更新
+    function initProgressChart() {
+        const ctx = document.getElementById('progress-chart').getContext('2d');
+        if (progressChart) {
+            progressChart.destroy();
+        }
+        progressChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['完璧', 'まあまあ', '要復習', '未学習'],
+                datasets: [{
+                    data: [0, 0, 0, 0],
+                    backgroundColor: ['#22c55e', '#facc15', '#ef4444', '#e5e7eb'],
+                    borderColor: 'rgba(255, 255, 255, 0.8)',
+                    borderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: true }
+                }
+            }
+        });
+        updateProgressChart();
+    }
+
+    function updateProgressChart() {
+        if (!progressChart) return;
+        const counts = { perfect: 0, soso: 0, review: 0, unseen: 0 };
+        questionStatus.forEach(status => {
+            counts[status]++;
+        });
+        progressChart.data.datasets[0].data = [counts.perfect, counts.soso, counts.review, counts.unseen];
+        progressChart.update();
+    }
+
+    // 結果画面表示
+    function showResultScreen() {
+        mainScreen.classList.add('hidden');
+        resultScreen.classList.remove('hidden');
+
+        // Confettiアニメーション
+        confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+
+        const ctx = document.getElementById('final-score-chart').getContext('2d');
+         if (finalScoreChart) {
+            finalScoreChart.destroy();
+        }
+        finalScoreChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['完璧', 'まあまあ', '要復習', '未学習'],
+                datasets: [{
+                    data: progressChart.data.datasets[0].data, // メイン画面のチャートからデータをコピー
+                    backgroundColor: ['#22c55e', '#facc15', '#ef4444', '#e5e7eb'],
+                    borderColor: 'rgba(255, 255, 255, 0.8)',
+                    borderWidth: 3,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#4b5563',
+                            font: { size: 14 }
+                        }
+                    },
+                    tooltip: { enabled: true }
+                }
+            }
+        });
+    }
+
+    // スタート画面に戻る
+    function showStartScreen() {
+        mainScreen.classList.add('hidden');
+        resultScreen.classList.add('hidden');
+        startScreen.classList.remove('hidden');
+    }
+
+    // キーボード操作
+    function handleKeyPress(e) {
+        if (mainScreen.classList.contains('hidden')) return;
+
+        switch (e.key) {
+            case 'ArrowRight':
+                changeQuestion(1);
+                break;
+            case 'ArrowLeft':
+                changeQuestion(-1);
+                break;
+            case ' ': // Space key
+                e.preventDefault(); // 画面スクロールを防ぐ
+                toggleAnswer();
+                break;
+        }
+    }
+
+    init();
+});
+</script>
+</body>
+</html>
